@@ -18,6 +18,40 @@
 // Build with "make compilateur"
 
 
+
+
+
+// <1>
+// ArithmeticExpression := Term {AdditiveOperator Term}
+// Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
+// Term := Digit | "(" ArithmeticExpression ")"
+// AdditiveOperator := "+" | "-"
+// RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
+// Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
+
+
+// <2>
+// Program := [DeclarationPart] StatementPart
+// DeclarationPart := "[" Letter {"," Letter} "]"
+// StatementPart := Statement {";" Statement} "."
+// Statement := AssignementStatement
+// AssignementStatement := Letter "=" Expression
+
+// Expression := SimpleExpression [RelationalOperator SimpleExpression]
+// SimpleExpression := Term {AdditiveOperator Term}
+// Term := Factor {MultiplicativeOperator Factor}
+// Factor := Number | Letter | "(" Expression ")"| "!" Factor
+// Number := Digit{Digit}
+
+// AdditiveOperator := "+" | "-" | "||"
+// MultiplicativeOperator := "*" | "/" | "%" | "&&"
+// RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
+// Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
+// Letter := "a"|...|"z"|"A"|...|"Z"
+
+
+
+
 #include <string>
 #include <iostream>
 #include <cstdlib>
@@ -65,67 +99,128 @@ void Error(string s){
 	exit(-1);
 }
 
-// <1>
-// ArithmeticExpression := Term {AdditiveOperator Term}
-// Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
-// Term := Digit | "(" ArithmeticExpression ")"
-// AdditiveOperator := "+" | "-"
-// RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
-// Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
-
-
-// <2>
-// Program := [DeclarationPart] StatementPart
-// DeclarationPart := "[" Letter {"," Letter} "]"
-// StatementPart := Statement {";" Statement} "."
-// Statement := AssignementStatement
-// AssignementStatement := Letter "=" Expression
-
-// Expression := SimpleExpression [RelationalOperator SimpleExpression]
-// SimpleExpression := Term {AdditiveOperator Term}
-// Term := Factor {MultiplicativeOperator Factor}
-// Factor := Number | Letter | "(" Expression ")"| "!" Factor
-// Number := Digit{Digit}
-
-// AdditiveOperator := "+" | "-" | "||"
-// MultiplicativeOperator := "*" | "/" | "%" | "&&"
-// RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
-// Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
-// Letter := "a"|...|"z"|"A"|...|"Z"
-
 
 // <1>
-// AdditiveOperator := "+" | "-"	
+//<1>  AdditiveOperator := "+" | "-"
+//<2>  AdditiveOperator := "+" | "-" | "||"	
 void AdditiveOperator(void){
 	if(current=='+'||current=='-')
 		ReadChar();
-	else
-		Error("Opérateur additif attendu"+to_string(Nchar)+current);	   // Additive operator expected
+	else{
+		if( current=='|' ){
+			ReadChar();
+			if( current!='|' )
+				Error("l'operateur de comparaison s'ecrit '||' ");
+			else
+				ReadChar();
+		}
+		else{
+			Error("Opérateur additif attendu"+to_string(Nchar)+current);	   // Additive operator expected
+		}
+	}
 }
 
-// RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
+//<1>  RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
+//<2>  RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
 void RelationalOperator(void){
-	if(current=='>' || current=='<' || current=='=' || current=='!'){
-
+	if(current=='>' || current=='=' || current=='!'){
 		ReadChar();
+		if( current=='='){
+			ReadChar();
+		}
 	}
 	else
-		Error("Opérateur relation attendu"+to_string(Nchar)+current);	 
+		if( current=='<' ){
+			ReadChar();
+			if( current=='=' || current=='>' ){
+				ReadChar();
+			}
+			// else{
+			// 	Error("Opérateur relation attendu"+to_string(Nchar)+current);
+			// }
+		}
+		else{
+			Error("Opérateur relation attendu"+to_string(Nchar)+current);	 
+		}
 }
 
-// Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"		
-void Digit(void){
-	if((current<'0')||(current>'9'))
-		Error("Chiffre attendu");		   // Digit expected
+// Letter := "a"|...|"z"|"A"|...|"Z"
+void Letter(void){
+	if( current<'a' || current>'z' ){
+		Error("lettre attendue");
+	}
 	else{
-		cout << "\tpush $"<<current<<endl;
+		cout << "\tpush" << current << endl;
 		ReadChar();
+	}
+}
+
+//<1>  Digit := "0|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"	
+//<2>  Digit := 0|1|2|3|4|5|6|7|8|9	
+int Digit(void){
+	return current-'0';
+}
+
+// Number := Digit{Digit}
+void Number(void){
+	unsigned long long number;	//与long long整型相关的一共有3个：LLONG_MIN、LLONG_MAX 和 ULLONG_MIN，它们分别代表了平台上最小的long long值、最大的long long值，以及最大的unsigned long long值。	
+	if( current<'0' || current>'9' )
+		Error("chiffre attendu");
+	else{
+		number=Digit();		// ASCII 码
+		ReadChar();
+	}
+	while( current>='0' && current<='9' ){
+		number*=10;
+		number+=Digit();
+		ReadChar();
+	}
+	cout << "\tpush $" << number << endl;
+}
+
+void Expression(void);
+
+// Factor := Number | Letter | "(" Expression ")"| "!" Factor
+void Factor(void){
+	if(current=='('){
+		ReadChar();
+		Expression();
+	}
+	else{
+		if(current>='0' && current<='9'){
+			Number();
+		}
+		else{
+
+		}
+	}
+}
+
+//MultiplicativeOperator := "*" | "/" | "%" | "&&"
+void MultiplicativeOperator(void){
+	if( current=='*' || current=='/' || current=='%' ){
+		ReadChar();
+	}
+	else{
+		if( current=='&' ){
+			ReadChar();
+			if( current!='&' ){
+				Error("l'operateur ET s'ecrit '&&' ");
+			}
+			else{
+				ReadChar();
+			}
+		}
+		else{
+			Error("Operateur multiplication attendu");
+		}
 	}
 }
 
 void ArithmeticExpression(void);			// Called by Term() and calls Term()
 
-// Term := Digit | "(" ArithmeticExpression ")"
+//<1>  Term := Digit | "(" ArithmeticExpression ")"
+//<2>  Term := Factor {MultiplicativeOperator Factor}
 void Term(void){
 	if(current=='('){
 		ReadChar();
@@ -165,7 +260,13 @@ void ArithmeticExpression(void){
 
 }
 
-// Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
+// SimpleExpression := Term {AdditiveOperator Term}
+void SimpleExpression(void){
+
+}
+
+//<1>  Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
+//<2>  Expression := SimpleExpression [RelationalOperator SimpleExpression]
 void Expression(void){
 	char relop;
 	char relop2;

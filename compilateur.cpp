@@ -59,9 +59,11 @@
 
 using namespace std;
 
+enum OPREL {equ, diff, infe, supe, inf, sup, unknown};		//enum <类型名> {<枚举常量表>};
 char current, lookedAhead;				// Current char	
 int NLookedAhead=0, Nchar=0, nbArith=0;
 set<string> DeclaredVariables;
+unsigned long TagNumber=0;
 
 
 bool IsDeclared(char c){
@@ -122,26 +124,40 @@ void AdditiveOperator(void){
 
 //<1>  RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
 //<2>  RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
-void RelationalOperator(void){
-	if(current=='>' || current=='=' || current=='!'){
-		ReadChar();
-		if( current=='='){
-			ReadChar();
+OPREL RelationalOperator(void){
+	if( current!='<' && current!='>' && current!='!' && current!='=' ){
+		return unknown;
+	}
+	LookAhead();
+	if( lookedAhead=='=' ){
+		switch(current){
+			case '=':
+				ReadChar();ReadChar();		//第一个 Readchar() 指针前进到 lookedAhead 位置， 第二个 Readchar() 指针正常往前到下一个元素位置
+				return equ;		//返回 枚举类 enum 中的值：相等 equ
+			case '!':
+				ReadChar();ReadChar();
+				return diff;
+			case '<':
+				ReadChar();ReadChar();
+				return infe;
+			case '>':
+				ReadChar();ReadChar();
+				return supe;
 		}
 	}
-	else
-		if( current=='<' ){
+	switch(current){
+		case '=':	//Next is not '='
+			Error("utilisez '==' comme operateur d'egalite");
+		case '<':
 			ReadChar();
-			if( current=='=' || current=='>' ){
-				ReadChar();
-			}
-			// else{
-			// 	Error("Opérateur relation attendu"+to_string(Nchar)+current);
-			// }
-		}
-		else{
-			Error("Opérateur relation attendu"+to_string(Nchar)+current);	 
-		}
+			return inf;
+		case '>':
+			ReadChar();
+			return sup;
+		default:
+			Error("operateur relationnel incommu");
+	}
+	return unknown;
 }
 
 // Letter := "a"|...|"z"|"A"|...|"Z"
@@ -150,7 +166,7 @@ void Letter(void){
 		Error("lettre attendue");
 	}
 	else{
-		cout << "\tpush" << current << endl;
+		cout << "\tpush " << current << endl;
 		ReadChar();
 	}
 }
@@ -185,13 +201,24 @@ void Factor(void){
 	if(current=='('){
 		ReadChar();
 		Expression();
+		if( current!=')' ){
+			Error(" ')' etait attendu ");
+		}
+		else{
+			ReadChar();
+		}
 	}
 	else{
 		if(current>='0' && current<='9'){
 			Number();
 		}
 		else{
-
+			if( current>='a' && current<='z' ){
+				Letter();
+			}
+			else{
+				Error(" '(' ou chiffre ou lettre attendue ");
+			}
 		}
 	}
 }
@@ -217,32 +244,48 @@ void MultiplicativeOperator(void){
 	}
 }
 
-void ArithmeticExpression(void);			// Called by Term() and calls Term()
+void SimpleExpression(void);			// Called by Term() and calls Term()
 
 //<1>  Term := Digit | "(" ArithmeticExpression ")"
 //<2>  Term := Factor {MultiplicativeOperator Factor}
 void Term(void){
-	if(current=='('){
-		ReadChar();
-		ArithmeticExpression();
-		if(current!=')')
-			Error("')' était attendu"+to_string(Nchar)+current);		// ")" expected
-		else
-			ReadChar();
+	char mulop;
+	Factor();
+	while( current=='*' || current=='/' || current=='%' || current=='&' ){
+		mulop = current;		//save operator in local variable
+		MultiplicativeOperator();
+		Factor();
+		cout << "\tpop %rbx" <<endl;		//get first operand
+		cout << "\tpop %rax" <<endl;		//get second operand
+		switch(mulop){
+			case '*':
+			case '&':
+				cout << "\tmulq %rbx" <<endl;		//a * b -> (%rdx %rax)		只有 %rax 可以处理溢出情况，溢出部分 转存 %rdx
+				cout << "\tpush %rax" <<endl;		// store result
+				break;
+			case '/':
+				cout << "\tmovq $0, %rdx" <<endl;		// Higer part of numerator		将 $0 赋值给 %rdx , %rdx 内存清0 
+				cout << "\tdiv %rbx" <<endl;		// quotient goes to %rax
+				cout << "\tpush %rax" <<endl;		// store result
+				break;
+			case '%':
+				cout << "\tmovq $0 %rdx" <<endl;		// Higer part of numerator		将 $0 赋值给 %rdx , %rdx 内存清0 
+				cout << "\tdiv %rbx" <<endl;		// quotient goes to %rax
+				cout << "\tpush %rax" <<endl;		// store result
+				break;
+			default:
+				Error("operateur additif attendu");
+		}
 	}
-	else 
-		if (current>='0' && current <='9')
-			Digit();
-		//else if()	//添加赋值函数变量
-	    else	
-			Error("'(' ou chiffre attendu "+to_string(Nchar)+current+to_string(NLookedAhead));
+	
 }
 
-// ArithmeticExpression := Term {AdditiveOperator Term}
-void ArithmeticExpression(void){
+//<1>  ArithmeticExpression := Term {AdditiveOperator Term}
+//<2>  SimpleExpression := Term {AdditiveOperator Term}
+void SimpleExpression(void){
 	char adop;
 	Term();
-	while(current=='+'||current=='-'){
+	while( current=='+' || current=='-' || current=='|' ){
 		adop=current;		// Save operator in local variable
 		AdditiveOperator();
 		Term();
@@ -260,69 +303,46 @@ void ArithmeticExpression(void){
 
 }
 
-// SimpleExpression := Term {AdditiveOperator Term}
-void SimpleExpression(void){
-
-}
-
 //<1>  Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
 //<2>  Expression := SimpleExpression [RelationalOperator SimpleExpression]
 void Expression(void){
-	char relop;
-	char relop2;
-	ArithmeticExpression();
+	OPREL oprel;
+	// char relop;
+	// char relop2;
+	SimpleExpression();
 	if( current=='<' || current=='>' || current=='=' || current=='!'){
-		relop=current;	// Save operator in local variable
-		RelationalOperator();
-		LookAhead();
-		relop2=current;
-		ReadChar();
-		if(relop2=='='||relop2=='>'){
-			ArithmeticExpression();
-			cout << "Exp :"<<endl;
-			// cout<<"\tpop %rax"<<endl;
-			cout << "\tpop %rbx"<<endl;	// get first operand
-			cout << "\tpop %rax"<<endl;	// get second operand
-			cout << "\tcmpq %rbx, %rax"<<endl;
-			string s= "";
-			s+=relop;
-			s+=relop2;
-			if(s == "=="){
-				cout << "\tje True"<<endl;
-			}else if(s == "<="){
-				cout << "\tjbe True"<<endl;
-			}else if(s == ">="){
-				cout << "\tjae True"<<endl;
-			}else if(s == "<>" || s == "!="){
-				cout << "\tjne True"<<endl;
-			}else{
-				Error("Opérateur relational inconnu"+to_string(Nchar)+current);
-			}
-			
+		oprel = RelationalOperator();
+		SimpleExpression();
+		cout << "\tpop %rax" <<endl;
+		cout << "\tpop %rbx" <<endl;
+		cout << "\tcmpq %rax,%rbx" <<endl;
+		switch(oprel){
+			case equ:
+				cout << "\tje True" << ++TagNumber << "\t# if equal" <<endl;
+				break;
+			case diff:
+				cout << "\tjne True" << ++TagNumber << "\t# if different" <<endl;
+				break;
+			case supe:
+				cout << "\tjae True" << ++TagNumber << "\t# if above or equal" <<endl;
+				break;
+			case infe:
+				cout << "\tjbe True" << ++TagNumber << "\t# if below or equal" <<endl;
+				break;
+			case inf:
+				cout << "\tjb True" << ++TagNumber << "\t# if below" <<endl;
+				break;
+			case sup:
+				cout << "\tja True" << ++TagNumber << "\t# if above" <<endl;
+				break;
+			default:
+				Error("Operateur de comparaison inconnu");
 		}
-		else{
-			ArithmeticExpression();
-			cout << "Exp :"<<endl;
-			// cout<<"\tpop %rax"<<endl;
-			cout << "\tpop %rbx"<<endl;	// get first operand
-			cout << "\tpop %rax"<<endl;	// get second operand
-			cout << "\tcmpq %rbx, %rax"<<endl;
-			if(relop == '<'){
-				cout << "\tjb True"<<endl;
-			}else if(relop == '>'){
-				cout << "\tja True"<<endl;
-			}else{
-				Error("Opérateur relational inconnu"+to_string(Nchar)+current);
-			}
-		}
-		cout << "False:"<<endl;
-		cout << "\tpush $0"<<endl;
-		cout << "\tjmp FinExp"<<endl;
-		cout << "True:"<<endl;	//
-		cout << "\tpush $1"<<endl;
-		cout << "FinExp:"<<endl;
-		
-		
+		// ***
+		cout << "\tpush $0\t\t# False" <<endl;
+		cout << "\tjmp Suit" << TagNumber <<endl;
+		cout << "True" << TagNumber << ":\tpush $1\t\t#True" <<endl;
+		cout << "Suit" << TagNumber << ":" <<endl;
 	}
 }
 
@@ -383,7 +403,7 @@ void Statement(void){
 void StatementPart(void){
 	cout << "\t\t\t# This code was produced by the CERI Compiler"<<endl;
 	cout << "\t.text\t\t# The following lines contain the program"<<endl;
-	cout << "\t.globl main\t# The main function must be visible from outside"<<endl;
+	cout << ".globl main\t\t# The main function must be visible from outside"<<endl;
 	cout << "main:\t\t\t# The main function body :"<<endl;
 	cout << "\tmovq %rsp, %rbp\t# Save the position of the stack's top"<<endl;
 	Statement();

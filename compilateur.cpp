@@ -18,19 +18,43 @@
 // Build with "make compilateur"
 
 
+#include <string>
+#include <iostream>
+#include <cstdlib>
+#include <set>
+#include <FlexLexer.h>
+#include "tokeniser.h"
+#include <cstring>
+
+using namespace std;
+
+enum OPREL {EQU, DIFF, INF, SUP, INFE, SUPE, WTFR};
+enum OPADD {ADD, SUB, OR, WTFA};
+enum OPMUL {MUL, DIV, MOD, AND ,WTFM};
+
+TOKEN current;				// Current token
 
 
+FlexLexer* lexer = new yyFlexLexer; // This is the flex tokeniser
+// tokens can be read using lexer->yylex()
+// lexer->yylex() returns the type of the lexicon entry (see enum TOKEN in tokeniser.h)
+// and lexer->YYText() returns the lexicon entry as a string
 
-// <1>
-// ArithmeticExpression := Term {AdditiveOperator Term}
-// Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
-// Term := Digit | "(" ArithmeticExpression ")"
-// AdditiveOperator := "+" | "-"
-// RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
-// Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
+	
+set<string> DeclaredVariables;
+unsigned long TagNumber=0;
+
+bool IsDeclared(const char *id){
+	return DeclaredVariables.find(id)!=DeclaredVariables.end();
+}
 
 
-// <2>
+void Error(string s){
+	cerr << "Ligne n°"<<lexer->lineno()<<", lu : '"<<lexer->YYText()<<"'("<<current<<"), mais ";
+	cerr<< s << endl;
+	exit(-1);
+}
+
 // Program := [DeclarationPart] StatementPart
 // DeclarationPart := "[" Letter {"," Letter} "]"
 // StatementPart := Statement {";" Statement} "."
@@ -40,358 +64,239 @@
 // Expression := SimpleExpression [RelationalOperator SimpleExpression]
 // SimpleExpression := Term {AdditiveOperator Term}
 // Term := Factor {MultiplicativeOperator Factor}
-// Factor := Number | Letter | "(" Expression ")"| "!" Factor
+// Factor := Number | Letter | "(" Expression ")"| "!" Factor
 // Number := Digit{Digit}
 
-// AdditiveOperator := "+" | "-" | "||"
-// MultiplicativeOperator := "*" | "/" | "%" | "&&"
-// RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
+// AdditiveOperator := "+" | "-" | "||"
+// MultiplicativeOperator := "*" | "/" | "%" | "&&"
+// RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
 // Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
-// Letter := "a"|...|"z"|"A"|...|"Z"
-
-
-
-
-#include <string>
-#include <iostream>
-#include <cstdlib>
-#include <set>
-
-using namespace std;
-
-enum OPREL {equ, diff, infe, supe, inf, sup, unknown};		//enum <类型名> {<枚举常量表>};
-char current, lookedAhead;				// Current char	
-int NLookedAhead=0, Nchar=0, nbArith=0;
-set<string> DeclaredVariables;
-unsigned long TagNumber=0;
-
-
-bool IsDeclared(char c){
-	return DeclaredVariables.find(string(1,c))!=DeclaredVariables.end();
-	//.find()返回查找元素的位置, .end()返回最后一个元素的下一个位置
-}
-
-void ReadChar(void){
-    if(NLookedAhead>0){
-        current=lookedAhead;    // Char has already been read
-        NLookedAhead--;
-    }
-    else{
-
-        // Read character and skip spaces until 
-        // non space character is read
-        while(cin.get(current) && (current==' '||current=='\t'||current=='\n'));
-		Nchar++;
+// Letter := "a"|...|"z"
 	
-
-	}
-	cerr<<current;
+		
+void Identifier(void){
+	cout << "\tpush "<<lexer->YYText()<<endl;
+	current=(TOKEN) lexer->yylex();
 }
 
-void LookAhead(void){
-    while(cin.get(lookedAhead) && (lookedAhead==' '||lookedAhead=='\t'||lookedAhead=='\n'));
-    NLookedAhead++;
-	Nchar++;
-}
-
-
-
-void Error(string s){
-	cerr<< s << endl;
-	exit(-1);
-}
-
-
-// <1>
-//<1>  AdditiveOperator := "+" | "-"
-//<2>  AdditiveOperator := "+" | "-" | "||"	
-void AdditiveOperator(void){
-	if(current=='+'||current=='-')
-		ReadChar();
-	else{
-		if( current=='|' ){
-			ReadChar();
-			if( current!='|' )
-				Error("l'operateur de comparaison s'ecrit '||' ");
-			else
-				ReadChar();
-		}
-		else{
-			Error("Opérateur additif attendu"+to_string(Nchar)+current);	   // Additive operator expected
-		}
-	}
-}
-
-//<1>  RelationalOperator := '=' | '=' | '!' | '<' | '>' |'<' | '>' 
-//<2>  RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
-OPREL RelationalOperator(void){
-	if( current!='<' && current!='>' && current!='!' && current!='=' ){
-		return unknown;
-	}
-	LookAhead();
-	if( lookedAhead=='=' ){
-		switch(current){
-			case '=':
-				ReadChar();ReadChar();		//第一个 Readchar() 指针前进到 lookedAhead 位置， 第二个 Readchar() 指针正常往前到下一个元素位置
-				return equ;		//返回 枚举类 enum 中的值：相等 equ
-			case '!':
-				ReadChar();ReadChar();
-				return diff;
-			case '<':
-				ReadChar();ReadChar();
-				return infe;
-			case '>':
-				ReadChar();ReadChar();
-				return supe;
-		}
-	}
-	switch(current){
-		case '=':	//Next is not '='
-			Error("utilisez '==' comme operateur d'egalite");
-		case '<':
-			ReadChar();
-			return inf;
-		case '>':
-			ReadChar();
-			return sup;
-		default:
-			Error("operateur relationnel incommu");
-	}
-	return unknown;
-}
-
-// Letter := "a"|...|"z"|"A"|...|"Z"
-void Letter(void){
-	if( current<'a' || current>'z' ){
-		Error("lettre attendue");
-	}
-	else{
-		cout << "\tpush " << current << endl;
-		ReadChar();
-	}
-}
-
-//<1>  Digit := "0|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"	
-//<2>  Digit := 0|1|2|3|4|5|6|7|8|9	
-int Digit(void){
-	return current-'0';
-}
-
-// Number := Digit{Digit}
 void Number(void){
-	unsigned long long number;	//与long long整型相关的一共有3个：LLONG_MIN、LLONG_MAX 和 ULLONG_MIN，它们分别代表了平台上最小的long long值、最大的long long值，以及最大的unsigned long long值。	
-	if( current<'0' || current>'9' )
-		Error("chiffre attendu");
-	else{
-		number=Digit();		// ASCII 码
-		ReadChar();
-	}
-	while( current>='0' && current<='9' ){
-		number*=10;
-		number+=Digit();
-		ReadChar();
-	}
-	cout << "\tpush $" << number << endl;
+	cout <<"\tpush $"<<atoi(lexer->YYText())<<endl;
+	current=(TOKEN) lexer->yylex();
 }
 
-void Expression(void);
+void Expression(void);			// Called by Term() and calls Term()
 
-// Factor := Number | Letter | "(" Expression ")"| "!" Factor
 void Factor(void){
-	if(current=='('){
-		ReadChar();
+	if(current==RPARENT){
+		current=(TOKEN) lexer->yylex();
 		Expression();
-		if( current!=')' ){
-			Error(" ')' etait attendu ");
-		}
-		else{
-			ReadChar();
-		}
+		if(current!=LPARENT)
+			Error("')' était attendu");		// ")" expected
+		else
+			current=(TOKEN) lexer->yylex();
 	}
-	else{
-		if(current>='0' && current<='9'){
+	else 
+		if (current==NUMBER)
 			Number();
-		}
-		else{
-			if( current>='a' && current<='z' ){
-				Letter();
-			}
-			else{
-				Error(" '(' ou chiffre ou lettre attendue ");
-			}
-		}
-	}
+	     	else
+				if(current==ID)
+					Identifier();
+				else
+					Error("'(' ou chiffre ou lettre attendue");
 }
 
-//MultiplicativeOperator := "*" | "/" | "%" | "&&"
-void MultiplicativeOperator(void){
-	if( current=='*' || current=='/' || current=='%' ){
-		ReadChar();
-	}
-	else{
-		if( current=='&' ){
-			ReadChar();
-			if( current!='&' ){
-				Error("l'operateur ET s'ecrit '&&' ");
-			}
-			else{
-				ReadChar();
-			}
-		}
-		else{
-			Error("Operateur multiplication attendu");
-		}
-	}
+// MultiplicativeOperator := "*" | "/" | "%" | "&&"
+OPMUL MultiplicativeOperator(void){
+	OPMUL opmul;
+	if(strcmp(lexer->YYText(),"*")==0)
+		opmul=MUL;
+	else if(strcmp(lexer->YYText(),"/")==0)
+		opmul=DIV;
+	else if(strcmp(lexer->YYText(),"%")==0)
+		opmul=MOD;
+	else if(strcmp(lexer->YYText(),"&&")==0)
+		opmul=AND;
+	else opmul=WTFM;
+	current=(TOKEN) lexer->yylex();
+	return opmul;
 }
 
-void SimpleExpression(void);			// Called by Term() and calls Term()
-
-//<1>  Term := Digit | "(" ArithmeticExpression ")"
-//<2>  Term := Factor {MultiplicativeOperator Factor}
+// Term := Factor {MultiplicativeOperator Factor}
 void Term(void){
-	char mulop;
+	OPMUL mulop;
 	Factor();
-	while( current=='*' || current=='/' || current=='%' || current=='&' ){
-		mulop = current;		//save operator in local variable
-		MultiplicativeOperator();
+	while(current==MULOP){
+		mulop=MultiplicativeOperator();		// Save operator in local variable
 		Factor();
-		cout << "\tpop %rbx" <<endl;		//get first operand
-		cout << "\tpop %rax" <<endl;		//get second operand
-		switch(mulop){
-			case '*':
-			case '&':
-				cout << "\tmulq %rbx" <<endl;		//a * b -> (%rdx %rax)		只有 %rax 可以处理溢出情况，溢出部分 转存 %rdx
-				cout << "\tpush %rax" <<endl;		// store result
-				break;
-			case '/':
-				cout << "\tmovq $0, %rdx" <<endl;		// Higer part of numerator		将 $0 赋值给 %rdx , %rdx 内存清0 
-				cout << "\tdiv %rbx" <<endl;		// quotient goes to %rax
-				cout << "\tpush %rax" <<endl;		// store result
-				break;
-			case '%':
-				cout << "\tmovq $0 %rdx" <<endl;		// Higer part of numerator		将 $0 赋值给 %rdx , %rdx 内存清0 
-				cout << "\tdiv %rbx" <<endl;		// quotient goes to %rax
-				cout << "\tpush %rax" <<endl;		// store result
-				break;
-			default:
-				Error("operateur additif attendu");
-		}
-	}
-	
-}
-
-//<1>  ArithmeticExpression := Term {AdditiveOperator Term}
-//<2>  SimpleExpression := Term {AdditiveOperator Term}
-void SimpleExpression(void){
-	char adop;
-	Term();
-	while( current=='+' || current=='-' || current=='|' ){
-		adop=current;		// Save operator in local variable
-		AdditiveOperator();
-		Term();
-		cout << "Arith"<<nbArith<<":"<<endl;
 		cout << "\tpop %rbx"<<endl;	// get first operand
 		cout << "\tpop %rax"<<endl;	// get second operand
-		if(adop=='+')
-			cout << "\taddq	%rbx, %rax"<<endl;	// add both operands
-		else
-			cout << "\tsubq	%rbx, %rax"<<endl;	// substract both operands
-		cout << "\tpush %rax"<<endl;			// store result
-		cout << "FinArith"<<nbArith<<": "<<endl;
-		nbArith+=1;
-	}
-
-}
-
-//<1>  Expression := <ArithmeticExpression> | <ArithmeticExpression> <RelationalOperator> <ArithmeticExpression>
-//<2>  Expression := SimpleExpression [RelationalOperator SimpleExpression]
-void Expression(void){
-	OPREL oprel;
-	// char relop;
-	// char relop2;
-	SimpleExpression();
-	if( current=='<' || current=='>' || current=='=' || current=='!'){
-		oprel = RelationalOperator();
-		SimpleExpression();
-		cout << "\tpop %rax" <<endl;
-		cout << "\tpop %rbx" <<endl;
-		cout << "\tcmpq %rax,%rbx" <<endl;
-		switch(oprel){
-			case equ:
-				cout << "\tje True" << ++TagNumber << "\t# if equal" <<endl;
+		switch(mulop){
+			case AND:
+				cout << "\tmulq	%rbx"<<endl;	// a * b -> %rdx:%rax
+				cout << "\tpush %rax\t# AND"<<endl;	// store result
 				break;
-			case diff:
-				cout << "\tjne True" << ++TagNumber << "\t# if different" <<endl;
+			case MUL:
+				cout << "\tmulq	%rbx"<<endl;	// a * b -> %rdx:%rax
+				cout << "\tpush %rax\t# MUL"<<endl;	// store result
 				break;
-			case supe:
-				cout << "\tjae True" << ++TagNumber << "\t# if above or equal" <<endl;
+			case DIV:
+				cout << "\tmovq $0, %rdx"<<endl; 	// Higher part of numerator  
+				cout << "\tdiv %rbx"<<endl;			// quotient goes to %rax
+				cout << "\tpush %rax\t# DIV"<<endl;		// store result
 				break;
-			case infe:
-				cout << "\tjbe True" << ++TagNumber << "\t# if below or equal" <<endl;
-				break;
-			case inf:
-				cout << "\tjb True" << ++TagNumber << "\t# if below" <<endl;
-				break;
-			case sup:
-				cout << "\tja True" << ++TagNumber << "\t# if above" <<endl;
+			case MOD:
+				cout << "\tmovq $0, %rdx"<<endl; 	// Higher part of numerator  
+				cout << "\tdiv %rbx"<<endl;			// remainder goes to %rdx
+				cout << "\tpush %rdx\t# MOD"<<endl;		// store result
 				break;
 			default:
-				Error("Operateur de comparaison inconnu");
+				Error("opérateur multiplicatif attendu");
 		}
-		// ***
-		cout << "\tpush $0\t\t# False" <<endl;
-		cout << "\tjmp Suit" << TagNumber <<endl;
-		cout << "True" << TagNumber << ":\tpush $1\t\t#True" <<endl;
-		cout << "Suit" << TagNumber << ":" <<endl;
 	}
 }
 
+// AdditiveOperator := "+" | "-" | "||"
+OPADD AdditiveOperator(void){
+	OPADD opadd;
+	if(strcmp(lexer->YYText(),"+")==0)
+		opadd=ADD;
+	else if(strcmp(lexer->YYText(),"-")==0)
+		opadd=SUB;
+	else if(strcmp(lexer->YYText(),"||")==0)
+		opadd=OR;
+	else opadd=WTFA;
+	current=(TOKEN) lexer->yylex();
+	return opadd;
+}
 
-// <2>
+// SimpleExpression := Term {AdditiveOperator Term}
+void SimpleExpression(void){
+	OPADD adop;
+	Term();
+	while(current==ADDOP){
+		adop=AdditiveOperator();		// Save operator in local variable
+		Term();
+		cout << "\tpop %rbx"<<endl;	// get first operand
+		cout << "\tpop %rax"<<endl;	// get second operand
+		switch(adop){
+			case OR:
+				cout << "\taddq	%rbx, %rax\t# OR"<<endl;// operand1 OR operand2
+				break;			
+			case ADD:
+				cout << "\taddq	%rbx, %rax\t# ADD"<<endl;	// add both operands
+				break;			
+			case SUB:	
+				cout << "\tsubq	%rbx, %rax\t# SUB"<<endl;	// substract both operands
+				break;
+			default:
+				Error("opérateur additif inconnu");
+		}
+		cout << "\tpush %rax"<<endl;			// store result
+	}
 
+}
 
-// DeclarationPart := "[" Letter {"," Letter} "]"
+// DeclarationPart := "[" Ident {"," Ident} "]"
 void DeclarationPart(void){
-	if(current!='[')
-		Error("caractere '[' attendu");
-	cout << "\t.data" << endl;
-	cout << "\t.align 8" <<endl;
-
-	ReadChar();
-	if(current<'a' || current>'z')
-		Error("Une lettre etait attendue");
-	cout << current << ":\t.quad 0" << endl;
-	DeclaredVariables.insert(string(1,current));
-	ReadChar();
-	while(current==','){
-		ReadChar();
-		if(current<'a' || current>'z')
-			Error("2Une lettre etait attendue");
-		cout << current << ":\t.quad 0" << endl;
-		DeclaredVariables.insert(string(1,current));
-		ReadChar();
+	if(current!=RBRACKET)
+		Error("caractère '[' attendu");
+	cout << "\t.data"<<endl;
+	cout << "\t.align 8"<<endl;
+	
+	current=(TOKEN) lexer->yylex();
+	if(current!=ID)
+		Error("Un identificater était attendu");
+	cout << lexer->YYText() << ":\t.quad 0"<<endl;
+	DeclaredVariables.insert(lexer->YYText());
+	current=(TOKEN) lexer->yylex();
+	while(current==COMMA){
+		current=(TOKEN) lexer->yylex();
+		if(current!=ID)
+			Error("Un identificateur était attendu");
+		cout << lexer->YYText() << ":\t.quad 0"<<endl;
+		DeclaredVariables.insert(lexer->YYText());
+		current=(TOKEN) lexer->yylex();
 	}
-	if(current!=']')
-		Error("Caractere ']' attendu");
-	ReadChar();
+	if(current!=LBRACKET)
+		Error("caractère ']' attendu");
+	current=(TOKEN) lexer->yylex();
 }
 
-// AssignementStatement := Letter "=" Expression
+// RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
+OPREL RelationalOperator(void){
+	OPREL oprel;
+	if(strcmp(lexer->YYText(),"==")==0)
+		oprel=EQU;
+	else if(strcmp(lexer->YYText(),"!=")==0)
+		oprel=DIFF;
+	else if(strcmp(lexer->YYText(),"<")==0)
+		oprel=INF;
+	else if(strcmp(lexer->YYText(),">")==0)
+		oprel=SUP;
+	else if(strcmp(lexer->YYText(),"<=")==0)
+		oprel=INFE;
+	else if(strcmp(lexer->YYText(),">=")==0)
+		oprel=SUPE;
+	else oprel=WTFR;
+	current=(TOKEN) lexer->yylex();
+	return oprel;
+}
+
+// Expression := SimpleExpression [RelationalOperator SimpleExpression]
+void Expression(void){
+	OPREL oprel;
+	SimpleExpression();
+	if(current==RELOP){
+		oprel=RelationalOperator();
+		SimpleExpression();
+		cout << "\tpop %rax"<<endl;
+		cout << "\tpop %rbx"<<endl;
+		cout << "\tcmpq %rax, %rbx"<<endl;
+		switch(oprel){
+			case EQU:
+				cout << "\tje Vrai"<<++TagNumber<<"\t# If equal"<<endl;
+				break;
+			case DIFF:
+				cout << "\tjne Vrai"<<++TagNumber<<"\t# If different"<<endl;
+				break;
+			case SUPE:
+				cout << "\tjae Vrai"<<++TagNumber<<"\t# If above or equal"<<endl;
+				break;
+			case INFE:
+				cout << "\tjbe Vrai"<<++TagNumber<<"\t# If below or equal"<<endl;
+				break;
+			case INF:
+				cout << "\tjb Vrai"<<++TagNumber<<"\t# If below"<<endl;
+				break;
+			case SUP:
+				cout << "\tja Vrai"<<++TagNumber<<"\t# If above"<<endl;
+				break;
+			default:
+				Error("Opérateur de comparaison inconnu");
+		}
+		cout << "\tpush $0\t\t# False"<<endl;
+		cout << "\tjmp Suite"<<TagNumber<<endl;
+		cout << "Vrai"<<TagNumber<<":\tpush $0xFFFFFFFFFFFFFFFF\t\t# True"<<endl;	
+		cout << "Suite"<<TagNumber<<":"<<endl;
+	}
+}
+
+// AssignementStatement := Identifier ":=" Expression
 void AssignementStatement(void){
-	char letter;
-	if(current<'a' || current>'z')
-		Error("lettre attendue");
-	letter=current;
-	if(!IsDeclared(letter)){
-		cerr << "Erreur : Variable '"<<letter<<"' non declaree"<<endl;
+	string variable;
+	if(current!=ID)
+		Error("Identificateur attendu");
+	if(!IsDeclared(lexer->YYText())){
+		cerr << "Erreur : Variable '"<<lexer->YYText()<<"' non déclarée"<<endl;
 		exit(-1);
 	}
-	ReadChar();
-	if(current!='=')
-		Error("caractere '=' attendu");
-	ReadChar();
+	variable=lexer->YYText();
+	current=(TOKEN) lexer->yylex();
+	if(current!=ASSIGN)
+		Error("caractères ':=' attendus");
+	current=(TOKEN) lexer->yylex();
 	Expression();
-	cout << "\tpop "<<letter<<endl;
+	cout << "\tpop "<<variable<<endl;
 }
 
 // Statement := AssignementStatement
@@ -401,47 +306,37 @@ void Statement(void){
 
 // StatementPart := Statement {";" Statement} "."
 void StatementPart(void){
-	cout << "\t\t\t# This code was produced by the CERI Compiler"<<endl;
 	cout << "\t.text\t\t# The following lines contain the program"<<endl;
-	cout << ".globl main\t\t# The main function must be visible from outside"<<endl;
+	cout << "\t.globl main\t# The main function must be visible from outside"<<endl;
 	cout << "main:\t\t\t# The main function body :"<<endl;
 	cout << "\tmovq %rsp, %rbp\t# Save the position of the stack's top"<<endl;
 	Statement();
-	while(current==';'){
-		ReadChar();
+	while(current==SEMICOLON){
+		current=(TOKEN) lexer->yylex();
 		Statement();
 	}
-	if(current!='.')
-		Error("caractere '.' attendu");
-	ReadChar();
+	if(current!=DOT)
+		Error("caractère '.' attendu");
+	current=(TOKEN) lexer->yylex();
 }
 
 // Program := [DeclarationPart] StatementPart
 void Program(void){
-	if(current=='['){
+	if(current==RBRACKET)
 		DeclarationPart();
-	}
-	StatementPart();
+	StatementPart();	
 }
-
 
 int main(void){	// First version : Source code on standard input and assembly code on standard output
 	// Header for gcc assembler / linker
-	// cout << "\t\t\t# This code was produced by the CERI Compiler"<<endl;
-	// cout << "\t.text\t\t# The following lines contain the program"<<endl;
-	// cout << "\t.globl main\t# The main function must be visible from outside"<<endl;
-	// cout << "main:\t\t\t# The main function body :"<<endl;
-	// cout << "\tmovq %rsp, %rbp\t# Save the position of the stack's top"<<endl;
-
+	cout << "\t\t\t# This code was produced by the CERI Compiler"<<endl;
 	// Let's proceed to the analysis and code production
-	ReadChar();
+	current=(TOKEN) lexer->yylex();
 	Program();
-	// Expression();
-	// ReadChar();
 	// Trailer for the gcc assembler / linker
 	cout << "\tmovq %rbp, %rsp\t\t# Restore the position of the stack's top"<<endl;
 	cout << "\tret\t\t\t# Return from main function"<<endl;
-	if(cin.get(current)){
+	if(current!=FEOF){
 		cerr <<"Caractères en trop à la fin du programme : ["<<current<<"]";
 		Error("."); // unexpected characters at the end of program
 	}

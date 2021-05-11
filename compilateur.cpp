@@ -28,7 +28,7 @@
 
 using namespace std;
 
-enum OPREL {EQU, DIFF, INF, SUP, INFE, SUPE, WTFR};
+enum OPREL {EQU, DIFF, INF, SUP, INFE, SUPE, WTFR};			//enum <类型名> {<枚举常量表>};
 enum OPADD {ADD, SUB, OR, WTFA};
 enum OPMUL {MUL, DIV, MOD, AND ,WTFM};
 
@@ -45,7 +45,7 @@ set<string> DeclaredVariables;
 unsigned long TagNumber=0;
 
 bool IsDeclared(const char *id){
-	return DeclaredVariables.find(id)!=DeclaredVariables.end();
+	return DeclaredVariables.find(id)!=DeclaredVariables.end();		//.find()返回查找元素的位置, .end()返回最后一个元素的下一个位置
 }
 
 
@@ -54,6 +54,7 @@ void Error(string s){
 	cerr<< s << endl;
 	exit(-1);
 }
+
 
 // Program := [DeclarationPart] StatementPart
 // DeclarationPart := "[" Letter {"," Letter} "]"
@@ -73,6 +74,7 @@ void Error(string s){
 // Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
 // Letter := "a"|...|"z"
 	
+
 		
 void Identifier(void){
 	cout << "\tpush "<<lexer->YYText()<<endl;
@@ -237,7 +239,8 @@ OPREL RelationalOperator(void){
 		oprel=INFE;
 	else if(strcmp(lexer->YYText(),">=")==0)
 		oprel=SUPE;
-	else oprel=WTFR;
+	else 
+		oprel=WTFR;
 	current=(TOKEN) lexer->yylex();
 	return oprel;
 }
@@ -303,6 +306,7 @@ void AssignementStatement(void){
 void Statement(void){
 	AssignementStatement();
 }
+
 
 // StatementPart := Statement {";" Statement} "."
 void StatementPart(void){

@@ -1,7 +1,7 @@
 %{
 // This is our Lexical tokeniser 
 // It should be compiled into cpp with :
-// flex++ -d -otokeniser.cpp tokeniser.l 
+// flex++ -d -o tokeniser.cpp tokeniser.l 
 // And then compiled into object with
 // g++ -c tokeniser.cpp
 // tokens can be read using lexer->yylex()

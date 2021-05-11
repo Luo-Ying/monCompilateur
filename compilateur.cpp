@@ -59,7 +59,11 @@ void Error(string s){
 // Program := [DeclarationPart] StatementPart
 // DeclarationPart := "[" Letter {"," Letter} "]"
 // StatementPart := Statement {";" Statement} "."
-// Statement := AssignementStatement
+// (modifed) Statement := AssignementStatement | IfStatement | WhileStatement | ForStatement | BlockStatement
+// (ajout) IfStatement := "IF" Expression "THEN" Statement [ "ELSE" Statement ]
+// (ajout) WhileStatement := "WHILE" Expression DO Statement
+// (ajout) ForStatement := "FOR" AssignementStatement "To" Expression "DO" Statement
+// (ajout) BlockStatement := "BEGIN" Statement { ";" Statement } "END"
 // AssignementStatement := Letter "=" Expression
 
 // Expression := SimpleExpression [RelationalOperator SimpleExpression]
@@ -110,7 +114,8 @@ void Factor(void){
 // MultiplicativeOperator := "*" | "/" | "%" | "&&"
 OPMUL MultiplicativeOperator(void){
 	OPMUL opmul;
-	if(strcmp(lexer->YYText(),"*")==0)
+	// strcmp() comparer les chaines de string par caractere, et renvoyer la difference des chaines, 0 sinon
+	if(strcmp(lexer->YYText(),"*")==0)		// si strcmp() renvoie 0 alors c'est "*", sinon non
 		opmul=MUL;
 	else if(strcmp(lexer->YYText(),"/")==0)
 		opmul=DIV;
@@ -302,11 +307,51 @@ void AssignementStatement(void){
 	cout << "\tpop "<<variable<<endl;
 }
 
-// Statement := AssignementStatement
-void Statement(void){
-	AssignementStatement();
+// (ajout) IfStatement := "IF" Expression "THEN" Statement [ "ELSE" Statement ]
+void IfStatement(void){
+
 }
 
+// (ajout) WhileStatement := "WHILE" Expression DO Statement
+void WhileStatement(void){
+
+}
+
+// (ajout) ForStatement := "FOR" AssignementStatement "To" Expression "DO" Statement
+void ForStatement(void){
+
+}
+
+// (ajout) BlockStatement := "BEGIN" Statement { ";" Statement } "END"
+void BlockStatement(void){
+
+}
+
+// Statement := AssignementStatement
+//(modifed) Statement := AssignementStatement | IfStatement | WhileStatement | ForStatement | BlockStatement
+void Statement(void){
+	// AssignementStatement();
+	if( current == KEYWORD ){
+		if( strcmp(lexer->YYText(), "IF") == 0 ){
+			IfStatement();
+		}
+		else if( strcmp(lexer->YYText(), "WHILE") == 0 ){
+			WhileStatement();
+		}
+		else if( strcmp(lexer->YYText(), "FOR") == 0 ){
+			ForStatement();
+		}
+		else if( strcmp(lexer->YYText(), "BEGIN") == 0 ){
+			BlockStatement();
+		}
+		else{
+			Error("mot cle inconnu");
+		}
+	}
+	else{
+		AssignementStatement();
+	}
+}
 
 // StatementPart := Statement {";" Statement} "."
 void StatementPart(void){

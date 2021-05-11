@@ -29,9 +29,11 @@ addop	(\+|\-|\|\|)
 mulop	(\*|\/|%|\&\&)
 relop	(\<|\>|"=="|\<=|\>=|!=)
 unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
+keyword (IF|THEN|ELSE|FOR|To|DO|WHILE|BEGIN|END)
 
 %%
 
+{keyword}	return KEYWORD;
 {addop}		return ADDOP;
 {mulop}		return MULOP;
 {relop}		return RELOP;

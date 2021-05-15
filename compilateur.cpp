@@ -309,22 +309,50 @@ void AssignementStatement(void){
 
 // (ajout) IfStatement := "IF" Expression "THEN" Statement [ "ELSE" Statement ]
 void IfStatement(void){
-
+	Expression();
+	if( current!=KEYWORD || strcmp(lexer->YYText(), "THEN")!=0 ){
+		Error("mot cle THEN attendu");
+	}
+	Statement();
+	if( current==KEYWORD || strcmp(lexer->YYText(), "ELSE")==0 ){
+		Statement();
+	}
 }
 
 // (ajout) WhileStatement := "WHILE" Expression DO Statement
 void WhileStatement(void){
-
+	Expression();
+	if( current!=KEYWORD || strcmp(lexer->YYText(), "DO")!=0 ){
+		Error("mot cle DO attendu");
+	}
+	Statement();
 }
 
 // (ajout) ForStatement := "FOR" AssignementStatement "To" Expression "DO" Statement
 void ForStatement(void){
-
+	AssignementStatement();
+	if( current!=KEYWORD || strcmp(lexer->YYText(), "TO")!=0 ){
+		Error("mot cle TO attendu");
+	}
+	Expression();
+	if( current!=KEYWORD || strcmp(lexer->YYText(), "DO")!=0 ){
+		Error("mot cle DO attendu");
+	}
+	Statement();
 }
 
 // (ajout) BlockStatement := "BEGIN" Statement { ";" Statement } "END"
 void BlockStatement(void){
-
+	current = (TOKEN)lexer->yylex();
+	Statement();
+	while( current == SEMICOLON ){
+		current = (TOKEN)lexer->yylex();
+		Statement();
+	}
+	if( current!=KEYWORD || strcmp(lexer->YYText(), "END")!=0 ){
+		Error("mot cle END attendu");
+	}
+	current = (TOKEN)lexer->yylex();
 }
 
 // Statement := AssignementStatement

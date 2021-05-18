@@ -309,35 +309,43 @@ void AssignementStatement(void){
 
 // (ajout) IfStatement := "IF" Expression "THEN" Statement [ "ELSE" Statement ]
 void IfStatement(void){
+	current = (TOKEN)lexer->yylex();
 	Expression();
 	if( current!=KEYWORD || strcmp(lexer->YYText(), "THEN")!=0 ){
 		Error("mot cle THEN attendu");
 	}
+	current = (TOKEN)lexer->yylex();
 	Statement();
 	if( current==KEYWORD || strcmp(lexer->YYText(), "ELSE")==0 ){
+		current = (TOKEN)lexer->yylex();
 		Statement();
 	}
 }
 
 // (ajout) WhileStatement := "WHILE" Expression DO Statement
 void WhileStatement(void){
+	current = (TOKEN)lexer->yylex();
 	Expression();
 	if( current!=KEYWORD || strcmp(lexer->YYText(), "DO")!=0 ){
 		Error("mot cle DO attendu");
 	}
+	current = (TOKEN)lexer->yylex();
 	Statement();
 }
 
 // (ajout) ForStatement := "FOR" AssignementStatement "To" Expression "DO" Statement
 void ForStatement(void){
+	current = (TOKEN)lexer->yylex();
 	AssignementStatement();
 	if( current!=KEYWORD || strcmp(lexer->YYText(), "TO")!=0 ){
 		Error("mot cle TO attendu");
 	}
+	current = (TOKEN)lexer->yylex();
 	Expression();
 	if( current!=KEYWORD || strcmp(lexer->YYText(), "DO")!=0 ){
 		Error("mot cle DO attendu");
 	}
+	current = (TOKEN)lexer->yylex();
 	Statement();
 }
 

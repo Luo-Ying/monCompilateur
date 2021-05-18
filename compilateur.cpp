@@ -31,6 +31,7 @@ using namespace std;
 enum OPREL {EQU, DIFF, INF, SUP, INFE, SUPE, WTFR};			//enum <类型名> {<枚举常量表>};
 enum OPADD {ADD, SUB, OR, WTFA};
 enum OPMUL {MUL, DIV, MOD, AND ,WTFM};
+enum TYPES {UNSIGNED_INT, BOOLEAN};
 
 TOKEN current;				// Current token
 
@@ -41,7 +42,7 @@ FlexLexer* lexer = new yyFlexLexer; // This is the flex tokeniser
 // and lexer->YYText() returns the lexicon entry as a string
 
 	
-set<string> DeclaredVariables;
+set<string> DeclaredVariables;	// Store declared variables and their types
 unsigned long TagNumber=0;
 
 bool IsDeclared(const char *id){
@@ -54,6 +55,29 @@ void Error(string s){
 	cerr<< s << endl;
 	exit(-1);
 }
+
+//  -- retourner le type de l'identificateur. (pour l'instant : UNSIGNED_INT) --
+enum TYPES Identifier(void){
+	enum TYPES type;
+	cout << "\tpush "<<lexer->YYText()<<endl;
+	current=(TOKEN) lexer->yylex();
+	if( current!=TYPE ){
+		Error("Type de variable inconnu");
+	}
+	// type = lexer->YYText();
+	current = (TOKEN) lexer->yylex();
+	return UNSIGNED_INT;
+}
+
+// -- retourner le type UNSIGNED_INT (prévoir qu'il y aura plusieurs possibilités dans le futur) --
+enum TYPES Number(void){
+	cout <<"\tpush $"<<atoi(lexer->YYText())<<endl;
+	current=(TOKEN) lexer->yylex();
+	return UNSIGNED_INT;
+}
+
+enum TYPES Expression(void);			// Called by Term() and calls Term()
+void Statement(void);			// Called by les statements;
 
 
 // Program := [DeclarationPart] StatementPart
@@ -77,38 +101,48 @@ void Error(string s){
 // RelationalOperator := "==" | "!=" | "<" | ">" | "<=" | ">="  
 // Digit := "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
 // Letter := "a"|...|"z"
-	
 
-		
-void Identifier(void){
-	cout << "\tpush "<<lexer->YYText()<<endl;
-	current=(TOKEN) lexer->yylex();
-}
 
-void Number(void){
-	cout <<"\tpush $"<<atoi(lexer->YYText())<<endl;
-	current=(TOKEN) lexer->yylex();
-}
-
-void Expression(void);			// Called by Term() and calls Term()
-
-void Factor(void){
-	if(current==RPARENT){
-		current=(TOKEN) lexer->yylex();
-		Expression();
-		if(current!=LPARENT)
-			Error("')' était attendu");		// ")" expected
-		else
-			current=(TOKEN) lexer->yylex();
+//  -- renvoie le type de l'analyse qu'elle a appelée, i.e. expression ou number ou encore identifier. --
+enum TYPES Factor(void){
+	enum TYPES type;
+	// if(current==RPARENT){
+	// 	current=(TOKEN) lexer->yylex();
+	// 	Expression();
+	// 	if(current!=LPARENT)
+	// 		Error("')' était attendu");		// ")" expected
+	// 	else
+	// 		current=(TOKEN) lexer->yylex();
+	// }
+	// else 
+	// 	if (current==NUMBER)
+	// 		Number();
+	//      	else
+	// 			if(current==ID)
+	// 				Identifier();
+	// 			else
+	// 				Error("'(' ou chiffre ou lettre attendue");
+	switch( current ){
+		case RPARENT:
+			current = (TOKEN) lexer->yylex();
+			type = Expression();
+			if( current != LPARENT ){
+				Error("')' était attendu");		// ")" expected
+			}
+			else{
+				current = (TOKEN) lexer->yylex();
+			}
+			break;
+		case NUMBER:
+			type = Number();
+			break;
+		case ID:
+			type = Identifier();
+			break;
+		default:
+			Error("'(' ou chiffre ou lettre attendue");
 	}
-	else 
-		if (current==NUMBER)
-			Number();
-	     	else
-				if(current==ID)
-					Identifier();
-				else
-					Error("'(' ou chiffre ou lettre attendue");
+	return type;
 }
 
 // MultiplicativeOperator := "*" | "/" | "%" | "&&"
@@ -129,12 +163,19 @@ OPMUL MultiplicativeOperator(void){
 }
 
 // Term := Factor {MultiplicativeOperator Factor}
-void Term(void){
+// récupère le type de Factor, vérifie que tous les appels suivants à Factor 
+// renvoient le même type (ou un type compatible dans le futur). Sinon, Term 
+// doit générer une erreur. Term renvoie le type retourné par tous les appels à Factor.
+enum TYPES Term(void){
+	TYPES type1, type2;
 	OPMUL mulop;
-	Factor();
+	type1 = Factor();
 	while(current==MULOP){
-		mulop=MultiplicativeOperator();		// Save operator in local variable
-		Factor();
+		mulop = MultiplicativeOperator();		// Save operator in local variable
+		type2 = Factor();
+		if( type1 != type2 ){
+			Error("types incompatibles dans l'expression");
+		}
 		cout << "\tpop %rbx"<<endl;	// get first operand
 		cout << "\tpop %rax"<<endl;	// get second operand
 		switch(mulop){
@@ -160,6 +201,7 @@ void Term(void){
 				Error("opérateur multiplicatif attendu");
 		}
 	}
+	return type1;
 }
 
 // AdditiveOperator := "+" | "-" | "||"
@@ -177,12 +219,19 @@ OPADD AdditiveOperator(void){
 }
 
 // SimpleExpression := Term {AdditiveOperator Term}
-void SimpleExpression(void){
+// récupère le type de Term, vérifie que tous les appels suivants à Term renvoient le même type 
+// (ou un type compatible dans le futur). Sinon, SimpleExpression doit générer une erreur. 
+// SimpleExpression renvoie le type retourné par tous les appels à Terms.
+enum TYPES SimpleExpression(void){
+	enum TYPES type1, type2;
 	OPADD adop;
-	Term();
+	type1 = Term();
 	while(current==ADDOP){
 		adop=AdditiveOperator();		// Save operator in local variable
-		Term();
+		type2 = Term();
+		if( type2 != type1 ){
+			Error("types incompatibles dans l'expression");
+		}
 		cout << "\tpop %rbx"<<endl;	// get first operand
 		cout << "\tpop %rax"<<endl;	// get second operand
 		switch(adop){
@@ -200,6 +249,7 @@ void SimpleExpression(void){
 		}
 		cout << "\tpush %rax"<<endl;			// store result
 	}
+	return type1;
 
 }
 
@@ -251,12 +301,21 @@ OPREL RelationalOperator(void){
 }
 
 // Expression := SimpleExpression [RelationalOperator SimpleExpression]
-void Expression(void){
+//  récupère le type de SimpleExpression, vérifie que tous les appels suivants à 
+//  SimpleExpression renvoient le même type (ou un type compatible dans le futur). 
+//  Sinon, Expression doit générer une erreur. Si aucun opérateur relationnel 
+//  n'a été lu, Expression renvoie le type retourné par SimpleExpression, sinon, 
+//  elle renvoie le type BOOLEAN.
+enum TYPES Expression(void){
+	enum TYPES type1, type2;
 	OPREL oprel;
-	SimpleExpression();
+	type1 = SimpleExpression();
 	if(current==RELOP){
-		oprel=RelationalOperator();
-		SimpleExpression();
+		oprel = RelationalOperator();
+		type2 = SimpleExpression();
+		if( type2 != type1 ){
+			Error("types incompatibles pour la comparaison");
+		}
 		cout << "\tpop %rax"<<endl;
 		cout << "\tpop %rbx"<<endl;
 		cout << "\tcmpq %rax, %rbx"<<endl;
@@ -286,11 +345,17 @@ void Expression(void){
 		cout << "\tjmp Suite"<<TagNumber<<endl;
 		cout << "Vrai"<<TagNumber<<":\tpush $0xFFFFFFFFFFFFFFFF\t\t# True"<<endl;	
 		cout << "Suite"<<TagNumber<<":"<<endl;
+		return BOOLEAN;
 	}
+	return type1;
 }
 
 // AssignementStatement := Identifier ":=" Expression
+// il faut vérifier que la variable et l'expression sont du même type et si ce n'est 
+// pas le cas, générer une erreur. Dans les instructions IF et WHILE, il faut vérifier 
+// que l'expression est bien de type BOOLEAN et sinon, générer une erreur.
 void AssignementStatement(void){
+	enum TYPES type1, type2;
 	string variable;
 	if(current!=ID)
 		Error("Identificateur attendu");
@@ -299,11 +364,17 @@ void AssignementStatement(void){
 		exit(-1);
 	}
 	variable=lexer->YYText();
+	type1 = UNSIGNED_INT;
 	current=(TOKEN) lexer->yylex();
 	if(current!=ASSIGN)
 		Error("caractères ':=' attendus");
 	current=(TOKEN) lexer->yylex();
-	Expression();
+	type2 = Expression();
+	if( type2 != type1 ){
+		cerr << "Type variable " << type1 <<endl;
+		cerr << "Type Expression " << type2 <<endl;
+		Error("types incompatibles dans l'affectation");
+	}
 	cout << "\tpop "<<variable<<endl;
 }
 

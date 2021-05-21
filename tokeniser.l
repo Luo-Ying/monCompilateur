@@ -23,13 +23,13 @@ stringconst  \"[^\n"]+\"
 ws      [ \t\n\r]+
 alpha   [A-Za-z]
 digit   [0-9]
-number  {digit}+
+number  {digit}+(\.{digit}+)?
 id	{alpha}({alpha}|{digit})*
 addop	(\+|\-|\|\|)
 mulop	(\*|\/|%|\&\&)
 relop	(\<|\>|"=="|\<=|\>=|!=)
 unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
-keyword (IF|THEN|ELSE|FOR|TO|DO|WHILE|BEGIN|END)
+keyword (IF|THEN|ELSE|FOR|TO|DO|WHILE|BEGIN|END|VAR)
 type	(UNSIGNED_INT|BOOLEAN|INTEGER|DOUBLE|CHAR|STRING)
 
 %%
@@ -45,6 +45,7 @@ type	(UNSIGNED_INT|BOOLEAN|INTEGER|DOUBLE|CHAR|STRING)
 "["		return RBRACKET;
 "]"		return LBRACKET;
 ","		return COMMA;
+":"		return COLON;
 ";"		return SEMICOLON;
 "."		return DOT;
 ":="		return ASSIGN;

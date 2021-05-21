@@ -30,7 +30,7 @@ mulop	(\*|\/|%|\&\&)
 relop	(\<|\>|"=="|\<=|\>=|!=)
 unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
 keyword (IF|THEN|ELSE|FOR|TO|DO|WHILE|BEGIN|END)
-type	(UNSIGNED_INT|BOOLEAN)
+type	(UNSIGNED_INT|BOOLEAN|INTEGER|DOUBLE|CHAR|STRING)
 
 %%
 

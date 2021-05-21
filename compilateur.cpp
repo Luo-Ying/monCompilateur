@@ -31,7 +31,7 @@ using namespace std;
 enum OPREL {EQU, DIFF, INF, SUP, INFE, SUPE, WTFR};			//enum <类型名> {<枚举常量表>};
 enum OPADD {ADD, SUB, OR, WTFA};
 enum OPMUL {MUL, DIV, MOD, AND ,WTFM};
-enum TYPES {UNSIGNED_INT, BOOLEAN};
+enum TYPES {UNSIGNED_INT, BOOLEAN, INTEGER, DOUBLE, CHAR, STRING};
 
 TOKEN current;				// Current token
 
@@ -59,21 +59,65 @@ void Error(string s){
 //  -- retourner le type de l'identificateur. (pour l'instant : UNSIGNED_INT) --
 enum TYPES Identifier(void){
 	enum TYPES type;
+	if( !IsDeclared(lexer->YYText()) ){
+		cerr << "Erreur : Variable " << lexer->YYText() << " non declare" <<endl;
+		exit(-1);
+	}
 	cout << "\tpush "<<lexer->YYText()<<endl;
 	current=(TOKEN) lexer->yylex();
-	if( current!=TYPE ){
-		Error("Type de variable inconnu");
+	switch(current){
+		case UNSIGNED_INT:
+			type = UNSIGNED_INT;
+			break;
+		case BOOLEAN:
+			type = BOOLEAN;
+			break;
+		case INTEGER:
+			type = INTEGER;
+			break;
+		case DOUBLE:
+			type = DOUBLE;
+			break;
+		case CHAR:
+			type = CHAR;
+			break;
+		case STRING:
+			type = STRING;
+			break;
 	}
 	// type = lexer->YYText();
 	current = (TOKEN) lexer->yylex();
-	return UNSIGNED_INT;
+	return type;
 }
 
 // -- retourner le type UNSIGNED_INT (prévoir qu'il y aura plusieurs possibilités dans le futur) --
 enum TYPES Number(void){
-	cout <<"\tpush $"<<atoi(lexer->YYText())<<endl;
-	current=(TOKEN) lexer->yylex();
-	return UNSIGNED_INT;
+	double d;									// 64-bit float
+	unsigned int * i;							// ponier to a 32 bit unsigned int
+	string number = lexer->YYText();
+	if( number.find(".") != string::npos ){		// Floating point constant number
+		// string::find()函数：是一个字符或字符串查找函数，该函数有唯一的返回类型，即string::size_type，即一个无符号整形类型，可能是整数也可能是长整数。
+		// 如果查找成功，返回按照查找规则找到的第一个字符或者子串的位置；
+		// 如果查找失败，返回string::npos,即-1（当然打印出的结果不是-1，而是一个很大的数值，那是因为它是无符号的）。
+		d = atof(lexer->YYText());			// atof()会扫描参数nptr字符串，跳过前面的空格字符，直到遇上数字或正负符号才开始做转换，而再遇到非数字或字符串结束时('\0')才结束转换，并将结果返回。
+		i = (unsigned int *) &d;			// i points to the const double
+		// cout << "\tpush $" << *i << "\t# Conversion of " << d <<endl;
+		//Is equivalent to :
+		cout << "\tsubq $8,%rsp\t\t\t# allocate 8 bytes on stack's top" <<endl;		//move the stack top (decaler le pile)
+		cout << "\tmovl $" << *i << ", (%rsp)\t# Conversion of " << d << " (32 bit high part)" <<endl;	
+		cout << "\tmovl $" << *(i+1) << ", 4(%rsp)\t# Conversion of " << d << " (32 bit low part)" <<endl;	// unsigned int is 32 bit
+		current = (TOKEN) lexer->yylex();
+		return DOUBLE;
+	}
+	else{	// Integer Constant
+		cout << "\tpush $" << atoi(lexer->YYText()) <<endl;		
+		//atoi() 函数用来将字符串转换成整数(int)，其原型为： int atoi (const char * str); ... 【返回值】返回转换后的整型数；如果str 不能转换成int 或者str 为空字符串，那么将返回0。
+		current = (TOKEN)lexer->yylex();
+		return INTEGER;
+	}
+	// cout <<"\tpush $"<<atoi(lexer->YYText())<<endl;
+	// current=(TOKEN) lexer->yylex();
+	// return UNSIGNED_INT;
 }
 
 enum TYPES Expression(void);			// Called by Term() and calls Term()
@@ -106,22 +150,6 @@ void Statement(void);			// Called by les statements;
 //  -- renvoie le type de l'analyse qu'elle a appelée, i.e. expression ou number ou encore identifier. --
 enum TYPES Factor(void){
 	enum TYPES type;
-	// if(current==RPARENT){
-	// 	current=(TOKEN) lexer->yylex();
-	// 	Expression();
-	// 	if(current!=LPARENT)
-	// 		Error("')' était attendu");		// ")" expected
-	// 	else
-	// 		current=(TOKEN) lexer->yylex();
-	// }
-	// else 
-	// 	if (current==NUMBER)
-	// 		Number();
-	//      	else
-	// 			if(current==ID)
-	// 				Identifier();
-	// 			else
-	// 				Error("'(' ou chiffre ou lettre attendue");
 	switch( current ){
 		case RPARENT:
 			current = (TOKEN) lexer->yylex();
@@ -253,6 +281,12 @@ enum TYPES SimpleExpression(void){
 
 }
 
+// VarDeclarationPart := "VAR" VarDeclaration {";" VarDeclaration} "."
+
+
+// VarDeclaration := Ident {"," Ident} ":" Type
+
+
 // DeclarationPart := "[" Ident {"," Ident} "]"
 void DeclarationPart(void){
 	if(current!=RBRACKET)
@@ -359,12 +393,13 @@ void AssignementStatement(void){
 	string variable;
 	if(current!=ID)
 		Error("Identificateur attendu");
+	//*************************
 	if(!IsDeclared(lexer->YYText())){
 		cerr << "Erreur : Variable '"<<lexer->YYText()<<"' non déclarée"<<endl;
 		exit(-1);
 	}
 	variable=lexer->YYText();
-	type1 = UNSIGNED_INT;
+	// type1 = Identifier();
 	current=(TOKEN) lexer->yylex();
 	if(current!=ASSIGN)
 		Error("caractères ':=' attendus");

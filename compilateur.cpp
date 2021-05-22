@@ -149,7 +149,8 @@ enum TYPES Factor(void){
 			type = Identifier();
 			break;
 		default:
-			Error("'(' ou chiffre ou lettre attendue");
+			// cout<<lexer->YYText()<<endl;
+			Error("'(', ou constante ou variable attendue.");
 	}
 	return type;
 }
@@ -521,52 +522,87 @@ void AssignementStatement(void){
 
 // (ajout) IfStatement := "IF" Expression "THEN" Statement [ "ELSE" Statement ]
 void IfStatement(void){
+	unsigned long long tag = TagNumber++;
 	current = (TOKEN)lexer->yylex();
-	Expression();
+	if( Expression() != BOOLEAN ){
+		Error("le type de l'expression doit etre BOOLEAN");
+	}
+	cout << "\tpop %rax\t# Get the result of expression" <<endl;
+	cout << "\tcmpq $0,%rax" <<endl;
+	cout << "\tje Else" << tag << "\t# if FALSE ,jump to Else" << tag <<endl;
 	if( current!=KEYWORD || strcmp(lexer->YYText(), "THEN")!=0 ){
 		Error("mot cle THEN attendu");
 	}
 	current = (TOKEN)lexer->yylex();
 	Statement();
+	cout << "\tjmp Next" << tag << "\t#Do not execute the else statement" <<endl;
+	cout << "Else" << tag << ":" <<endl;		// Might be the same effective adress than Next;
 	if( current==KEYWORD || strcmp(lexer->YYText(), "ELSE")==0 ){
 		current = (TOKEN)lexer->yylex();
 		Statement();
 	}
+	cout << "Next" << tag << ":" <<endl;
 }
 
 // (ajout) WhileStatement := "WHILE" Expression DO Statement
 void WhileStatement(void){
+	unsigned long long tag  = TagNumber++;
+	cout << "While" << tag << ":" <<endl;
 	current = (TOKEN)lexer->yylex();
-	Expression();
+	if( Expression() != BOOLEAN ){
+		Error("expression booleene attendu");
+	}
+	cout << "\tpop %rax\t# Get the result of expression" <<endl;
+	cout << "\tcmpq $0,%rax" <<endl;
+	cout << "\tje suite" << tag << "\t# if FALSE, jump out of the loop" << tag <<endl;
+	// Expression();
 	if( current!=KEYWORD || strcmp(lexer->YYText(), "DO")!=0 ){
 		Error("mot cle DO attendu");
 	}
 	current = (TOKEN)lexer->yylex();
 	Statement();
+	cout << "\tjmp While" << tag <<endl;
+	cout << "suite" << tag << ":" <<endl;
 }
 
-// (ajout) ForStatement := "FOR" AssignementStatement "To" Expression "DO" Statement
+// ForStatement := "For" ID ":=" Expression ("TO"|"DOWNTO") Expression "DO" Statement
 void ForStatement(void){
 	unsigned long long tag = TagNumber++;
 	if( strcmp(lexer->YYText(), "FOR")!=0 ){
-		Error("for expected");
+		Error("FOR expected");
 	}
 	cout << "for" << tag << ":" <<endl;
-	
-	// to be continu.....
-
 	current = (TOKEN)lexer->yylex();
+	string variable = lexer->YYText();
 	AssignementStatement();
-	if( current!=KEYWORD || strcmp(lexer->YYText(), "TO")!=0 ){
-		Error("mot cle TO attendu");
+	if( strcmp(lexer->YYText(), "TO") != 0 && strcmp(lexer->YYText(), "DOWNTO") != 0){
+		Error("TO or DOWNTO expected");
 	}
+	string keyword = lexer->YYText();
 	current = (TOKEN)lexer->yylex();
-	Expression();
-	if( current!=KEYWORD || strcmp(lexer->YYText(), "DO")!=0 ){
-		Error("mot cle DO attendu");
+	if( Expression() != INTEGER ){
+		Error("le type de l'expression doit etre INTEGER");
+	}
+	// Error(lexer->YYText());
+	// Expression();
+	cout << "\tpop %rax" <<endl;
+	// cout << "for" << tag << ":" <<endl;
+	cout << "\tcmpq %rax," << variable <<endl;		// regarde si i est egale a but
+	cout << "\tje SuiteFor" << tag <<endl;		// si il a deppasse , jump vers SuitFor
+	// current = (TOKEN)lexer->yylex();
+	if( strcmp(lexer->YYText(), "DO")!=0 ){
+		Error("DO expected");
 	}
 	current = (TOKEN)lexer->yylex();
 	Statement();
+	if( keyword == "TO" ){
+		cout << "\taddq $1," << variable <<endl;
+	}
+	else if( keyword == "DOWNTO" ){
+		cout << "\tsubq $1," << variable <<endl;
+	}
+	cout << "\tjmp for" << tag <<endl;
+	cout << "SuiteFor" << tag << ":" <<endl;
 }
 
 // (ajout) BlockStatement := "BEGIN" Statement { ";" Statement } "END"
@@ -605,7 +641,12 @@ void Statement(void){
 		}
 	}
 	else{
-		AssignementStatement();
+		if( current == ID ){
+			AssignementStatement();
+		}
+		else{
+			Error("instruction attendu");
+		}
 	}
 }
 

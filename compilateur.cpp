@@ -571,7 +571,7 @@ void ForStatement(void){
 	if( strcmp(lexer->YYText(), "FOR")!=0 ){
 		Error("FOR expected");
 	}
-	cout << "for" << tag << ":" <<endl;
+	// cout << "for" << tag << ":" <<endl;
 	current = (TOKEN)lexer->yylex();
 	string variable = lexer->YYText();
 	AssignementStatement();
@@ -580,16 +580,14 @@ void ForStatement(void){
 	}
 	string keyword = lexer->YYText();
 	current = (TOKEN)lexer->yylex();
+
+	cout << "for" << tag << ":" <<endl;
 	if( Expression() != INTEGER ){
 		Error("le type de l'expression doit etre INTEGER");
 	}
-	// Error(lexer->YYText());
-	// Expression();
 	cout << "\tpop %rax" <<endl;
-	// cout << "for" << tag << ":" <<endl;
 	cout << "\tcmpq %rax," << variable <<endl;		// regarde si i est egale a but
 	cout << "\tje SuiteFor" << tag <<endl;		// si il a deppasse , jump vers SuitFor
-	// current = (TOKEN)lexer->yylex();
 	if( strcmp(lexer->YYText(), "DO")!=0 ){
 		Error("DO expected");
 	}
@@ -597,9 +595,13 @@ void ForStatement(void){
 	Statement();
 	if( keyword == "TO" ){
 		cout << "\taddq $1," << variable <<endl;
+		cout << "\tpush %rax" <<endl;
+		cout << "\tpop " << variable <<endl;
 	}
 	else if( keyword == "DOWNTO" ){
 		cout << "\tsubq $1," << variable <<endl;
+		cout << "\tpush %rax" <<endl;
+		cout << "\tpop " << variable <<endl;;
 	}
 	cout << "\tjmp for" << tag <<endl;
 	cout << "SuiteFor" << tag << ":" <<endl;
@@ -619,12 +621,59 @@ void BlockStatement(void){
 	current = (TOKEN)lexer->yylex();
 }
 
+// DisplayStatement := "DISPLAY" Expression
+void DisplayStatement(void){
+	enum TYPES type;
+	unsigned long long tag = ++TagNumber;
+	current = (TOKEN)lexer->yylex();
+	type = Expression();
+	switch(type){
+		case INTEGER:
+			cout << "\tpop %rsi\t# The value to be displayed" <<endl;
+			cout << "\tmovq $FormatString1,%rdi\t# \"%llu\\n\"" <<endl;
+			cout << "\tmovl $0,%eax" <<endl;
+			// cout << "\tmovl $0,(%esp)" <<endl;
+			// cout << "\tcall printf" <<endl;
+			// cout << "\tcall exit" <<endl;
+			break;
+		case BOOLEAN:
+			cout << "\tpop %rdx\t# Zero : False, non-zero : true" <<endl;
+			cout << "\tcmpq $0,%rdx" <<endl;
+			cout << "\tje False" << tag <<endl;
+			cout << "\tmovq $TrueString,%rdi\t# \"TRUE\\n\"" <<endl;
+			cout << "\tjmp Next" << tag <<endl;
+			cout << "False" << tag << ":" <<endl;
+			cout << "\tmovq $FalseString,%rdi\t# \"FALSE\\n\"" <<endl;
+			cout << "Next" << tag << ":" <<endl;
+			cout << "\tcall puts" <<endl;
+			// cout << "\tcall exit" <<endl;
+			break;
+		case DOUBLE:
+			cout << "\tmovsd (%rsp),%xmm0\t\t# &stack top -> %xmm0" <<endl;
+			cout << "\tsubq $16,%rsp\t\t# allocation for 3 additional doubles" <<endl;
+			cout << "\tmovsd %xmm0,8(%rsp)" <<endl;
+			cout << "\tmovq $FormatString2, %rdi\t# \"%lf\\n\"" <<endl;
+			cout << "\tmovq $1,%rax" <<endl;
+			cout << "\tcall printf" <<endl;
+			// cout << "\tcall exit" <<endl;
+			cout << "nop" <<endl;
+			cout << "\taddq $24,%rsp\t\t\t# pop nothing" <<endl;
+			// cout << "\tcall exit" <<endl;
+			break;
+		default:
+			Error("DISPLAY ne fonctionne pas pour ce type de donne.");
+	}
+}
+
 // Statement := AssignementStatement
 //(modifed) Statement := AssignementStatement | IfStatement | WhileStatement | ForStatement | BlockStatement
 void Statement(void){
 	// AssignementStatement();
 	if( current == KEYWORD ){
-		if( strcmp(lexer->YYText(), "IF") == 0 ){
+		if( strcmp(lexer->YYText(), "DISPLAY") == 0 ){
+			DisplayStatement();
+		}
+		else if( strcmp(lexer->YYText(), "IF") == 0 ){
 			IfStatement();
 		}
 		else if( strcmp(lexer->YYText(), "WHILE") == 0 ){
@@ -679,6 +728,12 @@ void Program(void){
 int main(void){	// First version : Source code on standard input and assembly code on standard output
 	// Header for gcc assembler / linker
 	cout << "\t\t\t# This code was produced by the CERI Compiler"<<endl;
+	cout << ".data" <<endl;
+	cout << "FormatString1:\t.string \"%llu\"\t# used by printf to display 64-bit unsigned integers" <<endl;
+	cout << "FormatString2:\t.string \"%lf\"\t# used by printf to display 64-bit floating point numbers" <<endl;
+	cout << "FormatString3:\t.string \"%c\"\t# used by printf to display a 8-bit single character" <<endl;
+	cout << "TrueString:\t.string \"TRUE\"\t# used by printf to display the boolean value TRUE" <<endl;
+	cout << "FalseString:\t.string \"FALSE\"\t# used by printf to display the boolean value FALSE" <<endl;
 	// Let's proceed to the analysis and code production
 	current=(TOKEN) lexer->yylex();
 	Program();

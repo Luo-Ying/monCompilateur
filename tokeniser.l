@@ -19,6 +19,7 @@ using namespace std;
 %option c++
 %option yylineno
 
+charconst	\'\\?.\'
 stringconst  \"[^\n"]+\"
 ws      [ \t\n\r]+
 alpha   [A-Za-z]
@@ -34,6 +35,7 @@ type	(UNSIGNED_INT|BOOLEAN|INTEGER|DOUBLE|CHAR|STRING)
 
 %%
 
+{charconst}	return CHARCONST;
 {type}		return TYPE;
 {keyword}	return KEYWORD;
 {addop}		return ADDOP;

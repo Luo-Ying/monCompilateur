@@ -101,6 +101,14 @@ enum TYPES Number(void){
 	// return UNSIGNED_INT;
 }
 
+enum TYPES CharConst(void){
+	cout << "\tmovq $0,%rax" <<endl;
+	cout << "\tmovb $" << lexer->YYText() << ",%al" <<endl;
+	cout << "\tpush %rax\t# push a 64-bit version of " << lexer->YYText() <<endl;
+	current = (TOKEN) lexer->yylex();
+	return CHAR;
+}
+
 enum TYPES Expression(void);			// Called by Term() and calls Term()
 void Statement(void);			// Called by les statements;
 
@@ -147,6 +155,9 @@ enum TYPES Factor(void){
 			break;
 		case ID:
 			type = Identifier();
+			break;
+		case CHARCONST:
+			type = CharConst();
 			break;
 		default:
 			// cout<<lexer->YYText()<<endl;
@@ -517,6 +528,10 @@ void AssignementStatement(void){
 		cerr << "Type Expression " << type2 <<endl;
 		Error("types incompatibles dans l'affectation");
 	}
+	if( type1 == CHAR){
+		cout << "\tpop %rax" <<endl;
+		cout << "\tmovb %al," << variable <<endl;
+	}
 	cout << "\tpop "<<variable<<endl;
 }
 
@@ -632,8 +647,8 @@ void DisplayStatement(void){
 			cout << "\tpop %rsi\t# The value to be displayed" <<endl;
 			cout << "\tmovq $FormatString1,%rdi\t# \"%llu\\n\"" <<endl;
 			cout << "\tmovl $0,%eax" <<endl;
-			// cout << "\tmovl $0,(%esp)" <<endl;
-			// cout << "\tcall printf" <<endl;
+			cout << "\tcall printf" <<endl;
+			// cout << "\taddl $8, %esp" <<endl;
 			// cout << "\tcall exit" <<endl;
 			break;
 		case BOOLEAN:
@@ -646,6 +661,7 @@ void DisplayStatement(void){
 			cout << "\tmovq $FalseString,%rdi\t# \"FALSE\\n\"" <<endl;
 			cout << "Next" << tag << ":" <<endl;
 			cout << "\tcall puts" <<endl;
+			// cout << "\taddl $8, %esp" <<endl;
 			// cout << "\tcall exit" <<endl;
 			break;
 		case DOUBLE:
@@ -654,12 +670,17 @@ void DisplayStatement(void){
 			cout << "\tmovsd %xmm0,8(%rsp)" <<endl;
 			cout << "\tmovq $FormatString2, %rdi\t# \"%lf\\n\"" <<endl;
 			cout << "\tmovq $1,%rax" <<endl;
-			cout << "\tcall printf" <<endl;
+			cout << "\tcall printf@PLT" <<endl;
 			// cout << "\tcall exit" <<endl;
 			cout << "nop" <<endl;
 			cout << "\taddq $24,%rsp\t\t\t# pop nothing" <<endl;
 			// cout << "\tcall exit" <<endl;
 			break;
+		case CHAR:
+			cout << "\tpop %rsi\t\t\t# get character in the 8 lowest bits of %si" <<endl;
+			cout << "\tmocq $FormatString3, %rdi\t# \"%c\\n\"" <<endl;
+			cout << "\tmovl $0,%eax" <<endl;
+			cout << "\tcall printf" <<endl;
 		default:
 			Error("DISPLAY ne fonctionne pas pour ce type de donne.");
 	}
@@ -702,7 +723,11 @@ void Statement(void){
 // StatementPart := Statement {";" Statement} "."
 void StatementPart(void){
 	cout << "\t.text\t\t# The following lines contain the program"<<endl;
+	// cout << "\t.align" <<endl;
+	// cout << "\t.thumb" <<endl;
+	// cout << "\t.extern printf" <<endl;
 	cout << "\t.globl main\t# The main function must be visible from outside"<<endl;
+	// cout << "\t.thumb_func" <<endl;
 	cout << "main:\t\t\t# The main function body :"<<endl;
 	cout << "\tmovq %rsp, %rbp\t# Save the position of the stack's top"<<endl;
 	Statement();

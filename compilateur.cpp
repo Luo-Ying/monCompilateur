@@ -596,12 +596,13 @@ void ForStatement(void){
 	string keyword = lexer->YYText();
 	current = (TOKEN)lexer->yylex();
 
-	cout << "for" << tag << ":" <<endl;
+	cout << "For" << tag << ":" <<endl;
 	if( Expression() != INTEGER ){
 		Error("le type de l'expression doit etre INTEGER");
 	}
 	cout << "\tpop %rax" <<endl;
 	cout << "\tcmpq %rax," << variable <<endl;		// regarde si i est egale a but
+	cout << "Do" << tag <<endl;
 	cout << "\tje SuiteFor" << tag <<endl;		// si il a deppasse , jump vers SuitFor
 	if( strcmp(lexer->YYText(), "DO")!=0 ){
 		Error("DO expected");
@@ -618,8 +619,58 @@ void ForStatement(void){
 		cout << "\tpush %rax" <<endl;
 		cout << "\tpop " << variable <<endl;;
 	}
-	cout << "\tjmp for" << tag <<endl;
+	cout << "\tjmp For" << tag <<endl;
 	cout << "SuiteFor" << tag << ":" <<endl;
+}
+
+void CaseStatement(void){
+
+    unsigned long long tag=TagNumber++;
+    unsigned long long tag2=0;
+    current=(TOKEN) lexer->yylex();
+    TYPES type1,type2;
+    cout<<"Case"<<tag<<":"<<endl;
+    type1 = Expression();
+    if(type1!=INTGER){
+        Error("le type de l'expresion du switch ne doit pas etre boolean");
+    }
+    cout<<"\tpop %rax\t# Get the result of expression"<<endl;
+    if(current!=KEYWORD || strcmp((lexer->YYText(),"OF")){
+        Error("keyword 'of' attendu");
+    }
+    current=(TOKEN) lexer->yylex();
+    while(current!=KEYWORD!strcmp(lexer->YYText(),"END")){
+
+        current=(TOKEN) lexer->yylex();
+        type2 = NUMBER();
+        if(type2!=type1){
+            error("types du case différents");
+        }
+        cout<<"\tpop %rax\t# Get the number"<<endl;
+
+        cout<<"\tcomp %rax,%rbx\t# Get the number"<<endl;
+
+        cout<<"\tjne Case"<<tag<<"-"<<tag2<<":"<<endl;
+
+        if(current!=KEYWORD||strcmp(lexer->YYText(),":")){
+            Error(" ':' attendu");
+        }
+        Statement();
+
+        cout<<"\tjmp CaseEnd"<<tag<<":"<<endl; 
+
+        cout<<"Case"<<tag<<"-"<<tag2<<endl;
+
+        tag2++;
+
+        if(current !=SEMICOLON){
+            Error(" ';' attendu ");
+        }
+        current=(TOKEN) lexer->yylex();
+    }
+
+    cout<<"CaseEnd"<<tag<<":"<<endl;
+
 }
 
 // (ajout) BlockStatement := "BEGIN" Statement { ";" Statement } "END"
@@ -702,6 +753,9 @@ void Statement(void){
 		}
 		else if( strcmp(lexer->YYText(), "FOR") == 0 ){
 			ForStatement();
+		}
+		else if( strcmp(lexer->YYText(), "CASE") == 0 ){
+			CaseStatement();
 		}
 		else if( strcmp(lexer->YYText(), "BEGIN") == 0 ){
 			BlockStatement();

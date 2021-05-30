@@ -30,8 +30,8 @@ addop	(\+|\-|\|\|)
 mulop	(\*|\/|%|\&\&)
 relop	(\<|\>|"=="|\<=|\>=|!=)
 unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
-keyword (IF|THEN|ELSE|FOR|TO|DOWNTO|DO|WHILE|BEGIN|END|VAR|DISPLAY)
-type	(UNSIGNED_INT|BOOLEAN|INTEGER|DOUBLE|CHAR|STRING)
+keyword (IF|THEN|ELSE|FOR|TO|DOWNTO|DO|WHILE|CASE|BEGIN|END|VAR|DISPLAY)
+type	(UNSIGNED_INT|BOOLEAN|INTEGER|DOUBLE|CHAR|STRING|)
 
 %%
 
